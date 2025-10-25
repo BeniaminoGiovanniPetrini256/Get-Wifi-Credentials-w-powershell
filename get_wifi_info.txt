@@ -1,37 +1,11 @@
-# Find a local administrative user (prefer an enabled local account)
-$adminCandidates = Get-LocalGroupMember -Group "Administrators" `
-    | Where-Object { $_.ObjectClass -eq 'User' } `
-    | ForEach-Object { ($_ .Name -split '\\')[-1] }   # extract username if DOMAIN\user format
+# Get all Wi-Fi profiles
+$profiles = (netsh wlan show profiles) | Select-String "\s*All User Profile\s*:\s*(.*)" | ForEach-Object { $_.Matches.Groups[1].Value }
 
-$adminUser = $null
-foreach ($name in $adminCandidates) {
-    $user = Get-LocalUser -Name $name -ErrorAction SilentlyContinue
-    if ($user -and $user.Enabled) {
-        $adminUser = $name
-        break
-    }
+# Loop through each profile and extract SSID and password
+foreach ($profile in $profiles) {
+    Write-Output "SSID: $profile"
+    $details = netsh wlan show profile name="$profile" key=clear
+    $key = ($details | Select-String "Key Content\s*:\s*(.*)").Matches.Groups[1].Value
+    Write-Output "Password: $key"
+    Write-Output "------------------------"
 }
-
-# Fallback to current user if no enabled admin found
-if (-not $adminUser) { $adminUser = $env:USERNAME }
-
-# Build output path to the admin user's Desktop
-$out = Join-Path -Path "C:\Users\$adminUser\Desktop" -ChildPath "wifi-passwords.txt"
-
-# Start fresh file with header
-"SSID : Password" | Out-File -FilePath $out -Encoding UTF8
-
-# Get profile names
-$profiles = (netsh wlan show profiles) -match "All User Profile" | ForEach-Object {
-    ($_ -split ":")[1].Trim()
-}
-
-# For each profile, get Key Content (password) and append to file
-foreach ($p in $profiles) {
-    $info = netsh wlan show profile name="$p" key=clear
-    $pwdLine = $info | Select-String "Key Content"
-    $pwd = if ($pwdLine) { ($pwdLine -split ":")[1].Trim() } else { "<no password or not accessible>" }
-    ("{0} : {1}" -f $p, $pwd) | Out-File -FilePath $out -Append -Encoding UTF8
-}
-
-Write-Output "Saved Wi-Fi SSID : Password list to: $out"
