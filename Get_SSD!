@@ -1,0 +1,11 @@
+# Get all Wi-Fi profiles
+$profiles = (netsh wlan show profiles) | Select-String "\s*All User Profile\s*:\s*(.*)" | ForEach-Object { $_.Matches.Groups[1].Value }
+
+# Loop through each profile and extract SSID and password
+foreach ($profile in $profiles) {
+    Write-Output "SSID: $profile"
+    $details = netsh wlan show profile name="$profile" key=clear
+    $key = ($details | Select-String "Key Content\s*:\s*(.*)").Matches.Groups[1].Value
+    Write-Output "Password: $key"
+    Write-Output "------------------------"
+}
