@@ -1,0 +1,23 @@
+# Get all Wi-Fi profiles
+$profiles = (netsh wlan show profiles) | Select-String "\s*All User Profile\s*:\s*(.*)" | ForEach-Object { $_.Matches.Groups[1].Value }
+
+# Define output file in Downloads directory
+$outputFile = "$env:USERPROFILE\Downloads\List_of_WiFi_Passwords.txt"
+
+# Clear the output file if it exists
+if (Test-Path $outputFile) { Clear-Content $outputFile }
+
+# Loop through each profile and extract SSID and password
+foreach ($profile in $profiles) {
+    $output = "SSID: $profile"
+    $details = netsh wlan show profile name="$profile" key=clear
+    $key = ($details | Select-String "Key Content\s*:\s*(.*)")?.Matches.Groups[1].Value
+    if ($key) {
+        $output += "`nPassword: $key"
+    } else {
+        $output += "`nPassword: Not found or not accessible"
+    }
+    $output += "`n------------------------"
+    # Append to file
+    Add-Content -Path $outputFile -Value $output
+}
