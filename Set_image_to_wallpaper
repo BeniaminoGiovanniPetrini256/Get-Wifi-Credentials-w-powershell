@@ -1,0 +1,24 @@
+$imagePath = "$env:USERPROFILE\Downloads\hecking.jpg"
+
+# Verify the image exists
+if (-not (Test-Path $imagePath)) {
+    Write-Output "Image not found at $imagePath"
+    exit
+}
+
+# Set registry values for wallpaper
+$regKey = "HKCU:\Control Panel\Desktop"
+Set-ItemProperty -Path $regKey -Name "Wallpaper" -Value $imagePath
+Set-ItemProperty -Path $regKey -Name "WallpaperStyle" -Value 2  # 2 = Stretch, 0 = Center, 1 = Tile, 4 = Fit, 6 = Fill
+Set-ItemProperty -Path $regKey -Name "TileWallpaper" -Value 0
+
+# Refresh the desktop to apply the wallpaper
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Wallpaper {
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+[Wallpaper]::SystemParametersInfo(20, 0, $imagePath, 3)
